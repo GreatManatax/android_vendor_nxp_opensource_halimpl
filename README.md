@@ -1,3 +1,25 @@
+# nfcandroid_nxp_ese_clients
+
+This Repo contains any additional information/files required to support the release
+
+####Git Repository
+
+| DESCRIPTION        | CHECKOUT COMMAND          |
+| :-------------: |:-------------:|
+| nfcandroid_nxp_ese_clients    |  git clone https://github.com/NXPNFCProject/nfcandroid_nxp_ese_clients.git |
+
+####Supported Versions on "master" Branch
+
+| Android Version        | NXP Release          | NXP Tag  |
+| :-------------: |:-------------:| :-----:|
+| android-p-preview 2               |  9.00.08 (SN100x) |  NFC_NCIHALx_AR2000.09.00.08_OpnSrc |
+| android-p-preview 2               |  9.00.0A (SN100x) |  NFC_NCIHALx_AR2000.09.00.0A_OpnSrc |
+| android-p-preview 2               |  9.00.0C (SN100x) |  NFC_NCIHALx_AR2000.09.00.0C_OpnSrc |
+| android-p-preview 2               |  9.00.0D (SN100x) |  NFC_NCIHALx_AR2000.09.00.0D_OpnSrc |
+| android-p-preview 2               |  9.00.0F (SN100x) |  NFC_NCIHALx_AR2000.09.00.0F_OpnSrc |
+| android-p-preview 2               |  9.00.11 (SN100x) |  NFC_NCIHALx_AR2000.09.00.11_OpnSrc |
+| android-p-preview 2               |  9.00.13 (SN100x) |  NFC_NCIHALx_AR2000.09.00.13_OpnSrc |
+
 #NFC_NCIHAL_libnfc-nci
 
 ####Git Repository
@@ -43,10 +65,9 @@
 | android-o-preview2                     |  8.0.13_O (PN553/PN557) |  NFC_NCIHALx_AR18C0.8.0.13_O_OpnSrc |
 | android-8.0.0_r4               |  8.1.0_O (PN553) |  NFC_NCIHALx_AR00C0.8.1.0_O_OpnSrc |
 | android-8.0.0_r4               |  8.2.0_O (PN557) |  NFC_NCIHALx_AR18C0.8.2.0_O_OpnSrc |
-| android-p-preview 2               |  9.0.D (PN553) |  NFC_NCIHALx_AR00C0.9.0.D_OpnSrc |
-| android-9.0.0_r3              |  9.1.0 (PN557) |  NFC_NCIHALx_AR0800.9.1.0_OpnSrc |
-| android-9.0.0_r3              |  9.2.0 (PN81T/PN557) |  NFC_NCIHALx_AR1800.9.2.0_OpnSrc |
-| android-9.0.0_r3               |  9.3.0 (PN553) |  NFC_NCIHALx_AR0040.9.3.0_OpnSrc |
+| android-8.0.0_r4               |  8.2.3_O (PN557) |  NFC_NCIHALx_AR18C0.8.2.3_O_OpnSrc |
+| android-8.0.0_r4               |  8.3.0_O (PN548C2/PN551/PN553) |  NFC_NCIHALx_AR0054.8.3.0_O_OpnSrc |
+| android-8.0.0_r4               |  8.3.0_O (PN548C2/PN551) | NFC_NCIHALx_AR003C.8.3.0_O_OpnSrc  |
 
 ####Supported Android Versions
 
@@ -60,7 +81,7 @@
 | android-p-preview 2               |  9.00.0A (SN100x) |  NFC_NCIHALx_AR2000.09.00.0A_OpnSrc |
 | android-p-preview 2               |  9.00.0C (SN100x) |  NFC_NCIHALx_AR2000.09.00.0C_OpnSrc |
 | android-p-preview 2               |  9.00.0D (SN100x) |  NFC_NCIHALx_AR2000.09.00.0D_OpnSrc |
-| android-p-preview 2               |  9.00.0F (SN100x) |  NFC_NCIHALx_AR2000.09.00.0F_OpnSrc
+| android-p-preview 2               |  9.00.0F (SN100x) |  NFC_NCIHALx_AR2000.09.00.0F_OpnSrc |
 | android-p-preview 2               |  9.00.11 (SN100x) |  NFC_NCIHALx_AR2000.09.00.11_OpnSrc |
 | android-p-preview 2               |  9.00.13 (SN100x) |  NFC_NCIHALx_AR2000.09.00.13_OpnSrc |
 | android-p-preview 2               |  9.00.15 (SN100x) |  NFC_NCIHALx_AR2000.09.00.15_OpnSrc |

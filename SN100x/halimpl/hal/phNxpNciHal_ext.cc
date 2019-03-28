@@ -480,8 +480,8 @@ static NFCSTATUS phNxpNciHal_ext_process_nfc_init_rsp(uint8_t* p_ntf, uint16_t* 
           }
           NXPLOG_NCIHAL_E("CORE_RESET_NTF received !");
           NXPLOG_NCIR_E("len = %3d > %s", *p_len, print_buffer);
-           phNxpNciHal_emergency_recovery();
-           status = NFCSTATUS_FAILED;
+          phNxpNciHal_emergency_recovery(p_ntf[3]);
+          status = NFCSTATUS_FAILED;
         } /* Parsing CORE_INIT_RSP*/
       } else if (p_ntf[0] == NCI_MT_RSP && ((p_ntf[1] & NCI_OID_MASK) == NCI_MSG_CORE_INIT)) {
       if (nxpncihal_ctrl.nci_info.nci_version == NCI_VERSION_2_0) {
@@ -817,15 +817,6 @@ NFCSTATUS phNxpNciHal_write_ext(uint16_t* cmd_len, uint8_t* p_cmd_data,
     phNxpNciHal_print_packet("RECV", p_rsp_data, 5);
     //        status = NFCSTATUS_FAILED;
     NXPLOG_NCIHAL_D("> Going through workaround - Dirty Set Config - End ");
-  } else if (*cmd_len == 3 && p_cmd_data[0] == 0x00 && p_cmd_data[1] == 0x00 &&
-             p_cmd_data[2] == 0x00) {
-    NXPLOG_NCIHAL_D("> Going through workaround - ISO-DEP Presence Check ");
-    p_cmd_data[0] = 0x2F;
-    p_cmd_data[1] = 0x11;
-    p_cmd_data[2] = 0x00;
-    status = NFCSTATUS_SUCCESS;
-    NXPLOG_NCIHAL_D(
-        "> Going through workaround - ISO-DEP Presence Check - End");
   }
 #if 0
     else if ( (p_cmd_data[0] == 0x20 && p_cmd_data[1] == 0x02 ) &&
@@ -1257,7 +1248,6 @@ NFCSTATUS phNxpNciHal_enableDefaultUICC2SWPline(uint8_t uicc2_sel) {
   NXPLOG_NCIHAL_D("phNxpNciHal_enableDefaultUICC2SWPline %d",uicc2_sel);
   p_data[LEN_INDEX] = 1;
   p += 4;
-  if(nfcFL.nfccFL._NFCC_DYNAMIC_DUAL_UICC) {
     if(uicc2_sel & 0x04) {
       UINT8_TO_STREAM(p, NXP_NFC_SET_CONFIG_PARAM_EXT);
       UINT8_TO_STREAM(p, NXP_NFC_PARAM_ID_SWP2);
@@ -1276,6 +1266,5 @@ NFCSTATUS phNxpNciHal_enableDefaultUICC2SWPline(uint8_t uicc2_sel) {
     }
     if(p_data[PARAM_INDEX] > 0x00)
       status = phNxpNciHal_send_ext_cmd(p-p_data, p_data);
-  }
   return status;
 }

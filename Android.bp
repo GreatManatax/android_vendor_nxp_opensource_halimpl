@@ -9,6 +9,16 @@ cc_library_headers {
     vendor_available: true,
 }
 
+cc_library_headers {
+    name: "libese_client_headers",
+    export_include_dirs: [
+        "inc",
+        "jcos_client/inc",
+        "ls_client/inc",
+    ],
+    vendor_available: true,
+}
+
 cc_library_shared {
 
     name: "se_nq_extn_client",

@@ -46,8 +46,12 @@ Return<void> NxpNfc::ioctl(uint64_t ioctlType, const hidl_vec<uint8_t>& inOutDat
   if (ioctlType == HAL_NFC_IOCTL_SET_TRANSIT_CONFIG) {
     /*As transit configurations are appended at the end of
     nfc_nci_IoctlInOutData_t, Assign appropriate pointer to TransitConfig*/
-    inpOutData.inp.data.transitConfig.val =
-        ((char *)pInOutData) + sizeof(nfc_nci_IoctlInOutData_t);
+    if (inpOutData.inp.data.transitConfig.len == 0) {
+      inpOutData.inp.data.transitConfig.val = NULL;
+    } else {
+      inpOutData.inp.data.transitConfig.val =
+          ((char *)pInOutData) + sizeof(nfc_nci_IoctlInOutData_t);
+      }
   }
     status = phNxpNciHal_ioctl(ioctlType, &inpOutData);
     if(HAL_NFC_IOCTL_ESE_JCOP_DWNLD == ioctlType)
@@ -58,8 +62,12 @@ Return<void> NxpNfc::ioctl(uint64_t ioctlType, const hidl_vec<uint8_t>& inOutDat
       {
         ALOGD("NxpNfc::ioctl state == ESE_UPDATE_COMPLETED");
         seteSEClientState(pInOutData->inp.data.nciCmd.p_cmd[0]);
-        eSEClientUpdate_Thread();
+        eSEClientUpdate_NFC_Thread();
       }
+    }
+    else if(HAL_NFC_IOCTL_GET_ESE_UPDATE_STATE == ioctlType)
+    {
+	inpOutData.out.data.status = (getJcopUpdateRequired() | (getLsUpdateRequired() << 8));
     }
     /*copy data and additional fields indicating status of ioctl operation
      * and context of the caller. Then invoke the corresponding proxy callback*/

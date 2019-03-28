@@ -25,8 +25,7 @@
 
 enum {
     HAL_NFC_IOCTL_NCI_TRANSCEIVE = 0xF1,
-    HAL_NFC_IOCTL_SEND_FLASH_UPDATE,
-    HAL_NFC_IOCTL_NFC_JCOP_DWNLD
+    HAL_NFC_IOCTL_NFC_JCOP_DWNLD,
 };
 
 enum {
@@ -59,15 +58,19 @@ enum {
   HAL_NFC_SET_DWNLD_STATUS,
   HAL_NFC_INHIBIT_PWR_CNTRL,
   HAL_NFC_IOCTL_ESE_JCOP_DWNLD,
-  HAL_NFC_IOCTL_ESE_UPDATE_COMPLETE
+  HAL_NFC_IOCTL_ESE_UPDATE_COMPLETE,
 #if (NXP_EXTNS == TRUE)
- ,HAL_NFC_IOCTL_SET_TRANSIT_CONFIG
+ HAL_NFC_IOCTL_SET_TRANSIT_CONFIG,
 #endif
+ HAL_NFC_GET_NXP_CONFIG,
+ HAL_NFC_IOCTL_NFCEE_SESSION_RESET,
+ HAL_NFC_IOCTL_P61_REL_ESE_PWR,
+ HAL_NFC_IOCTL_P61_SET_ESE_PWR
 };
 
 enum {
-    //HAL_NFC_ENABLE_I2C_FRAGMENTATION_EVT = 0x07,
-    HAL_NFC_POST_MIN_INIT_CPLT_EVT       = 0x08
+    HAL_NFC_ENABLE_I2C_FRAGMENTATION_EVT = 0x08,
+    HAL_NFC_POST_MIN_INIT_CPLT_EVT       = 0x09
 };
 /*
  * Data structures provided below are used of Hal Ioctl calls
@@ -93,10 +96,9 @@ typedef struct
  * TransitConfig_t shall contain transit config value and transit
  * Configuration length
  */
-typedef struct
-{
-    long len;
-    char *val;
+typedef struct {
+  long len;
+  char *val;
 } TransitConfig_t;
 /*
  * InputData_t :ioctl has multiple subcommands
@@ -127,6 +129,16 @@ typedef struct {
     long level;
 }nfc_nci_ExtnInputData_t;
 
+typedef struct {
+  uint8_t ese_listen_tech_mask;
+  uint8_t default_nfcee_disc_timeout;
+  uint8_t default_nfcee_timeout;
+  uint8_t ese_wired_prt_mask;
+  uint8_t uicc_wired_prt_mask;
+  uint8_t wired_mode_rf_field_enable;
+  uint8_t aid_block_route;
+} nxp_nfc_config_t;
+
 /*
  * outputData_t :ioctl has multiple commands/responses
  * This contains the output types for each ioctl.
@@ -140,6 +152,7 @@ typedef union{
     uint16_t            fwDwnldStatus;
     uint16_t            fwMwVerStatus;
     uint8_t             chipType;
+    nxp_nfc_config_t    nxpConfigs;
 }outputData_t;
 
 /*
@@ -176,7 +189,6 @@ enum NxpNfcHalStatus {
     HAL_NFC_STATUS_RESTART = 0x30,
     HAL_NFC_HCI_NV_RESET = 0x40,
 };
-
 typedef union {
     uint8_t ese_jcop_download_state;
 } nfcIoctlData_t;
