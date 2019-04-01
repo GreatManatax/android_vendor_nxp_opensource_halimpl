@@ -15,7 +15,7 @@
 //
 
 cc_library_shared {
-    name: "nfc_nci.nqx.default",
+    name: "nfc_nci.sn100.default",
     relative_install_path: "hw",
     defaults: ["hidl_defaults"],
     vendor: true,
@@ -65,6 +65,7 @@ cc_library_shared {
 
     include_dirs: [
         "vendor/nxp/opensource/halimpl/SN100x/extns/impl",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/include",
     ],
 
     export_include_dirs: [
@@ -91,7 +92,7 @@ cc_library_shared {
 }
 
 cc_library_shared {
-    name: "nfc_nci.nqx.default.hw",
+    name: "nfc_nci.sn100.default.hw",
     defaults: ["hidl_defaults"],
     vendor: true,
 
@@ -141,6 +142,7 @@ cc_library_shared {
 
     include_dirs: [
         "vendor/nxp/opensource/halimpl/SN100x/extns/impl",
+        "vendor/nxp/opensource/commonsys/external/libnfc-nci/SN100x/src/include",
     ],
 
     export_include_dirs: [

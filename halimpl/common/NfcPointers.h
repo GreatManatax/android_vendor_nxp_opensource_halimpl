@@ -58,4 +58,8 @@ typedef struct HAL_API_struct {
     int(*phNxpNciHal_ioctl)(long, void*);
     // phNxpNciHal_get_debug_status
     bool(*phNxpNciHal_get_debug_status)(void);
+    // phNxpNciHal_getNfcChipId
+    string(*phNxpNciHal_getNfcChipId)(void);
+    // phNxpNciHal_getNfcFirmwareVersion
+    string(*phNxpNciHal_getNfcFirmwareVersion)(void);
 } hal_api_struct_t;

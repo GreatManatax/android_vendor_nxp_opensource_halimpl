@@ -4785,4 +4785,6 @@ extern "C" hal_api_struct_t const api_funcs = {
   phNxpNciHal_getVendorConfig,
   phNxpNciHal_ioctl,
   phNxpNciHal_get_debug_status,
+  phNxpNciHal_getNfcChipId,
+  phNxpNciHal_getNfcFirmwareVersion,
 };

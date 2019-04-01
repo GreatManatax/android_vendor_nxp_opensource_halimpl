@@ -37,10 +37,10 @@
 #ifndef _PHNXPNCIHAL_UTILS_H_
 #define _PHNXPNCIHAL_UTILS_H_
 
+#include <assert.h>
+#include <phNfcStatus.h>
 #include <pthread.h>
 #include <semaphore.h>
-#include <phNfcStatus.h>
-#include <assert.h>
 #include <errno.h>
 
 /********************* Definitions and structures *****************************/

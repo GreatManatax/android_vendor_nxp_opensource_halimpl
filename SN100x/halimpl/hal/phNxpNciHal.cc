@@ -1,4 +1,7 @@
 /*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Not a Contribution.
+ *
  * Copyright (C) 2012-2018 NXP Semiconductors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -41,6 +44,7 @@
 #endif
 #include "hal_nxpnfc.h"
 #include "spi_spm.h"
+#include "NfcPointers.h"
 
 
 #include <android-base/stringprintf.h>
@@ -3714,6 +3718,18 @@ static void phNxpNciHal_hci_network_reset(void) {
   phTmlNfc_DeferredCall(gpphTmlNfc_Context->dwCallbackThreadId, &msg);
 }
 /******************************************************************************
+ * Function         phNxpNciHal_get_debug_status
+ *
+ * Description      This function is called by the HIDl implementation to retrieve
+ *                  the nfc debug status from the HAL.
+ *
+ * Returns          boolean nfc_debug_enabled.
+ *
+ ******************************************************************************/
+bool phNxpNciHal_get_debug_status(void) {
+  return nfc_debug_enabled;
+}
+/******************************************************************************
  * Function         phNxpNciHal_print_res_status
  *
  * Description      This function is called to process the response status
@@ -4049,3 +4065,19 @@ NFCSTATUS phNxpNciHal_PropEsePowerCycle(void) {
   return status;
 }
 #endif
+extern "C" hal_api_struct_t const api_funcs = {
+  phNxpNciHal_open,
+  phNxpNciHal_write,
+  phNxpNciHal_core_initialized,
+  phNxpNciHal_pre_discover,
+  phNxpNciHal_close,
+  phNxpNciHal_control_granted,
+  phNxpNciHal_power_cycle,
+  phNxpNciHal_do_factory_reset,
+  phNxpNciHal_configDiscShutdown,
+  phNxpNciHal_getVendorConfig,
+  phNxpNciHal_ioctl,
+  phNxpNciHal_get_debug_status,
+  phNxpNciHal_getNfcChipId,
+  phNxpNciHal_getNfcFirmwareVersion,
+};

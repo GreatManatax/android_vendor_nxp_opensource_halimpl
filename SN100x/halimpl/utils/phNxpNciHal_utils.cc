@@ -34,9 +34,12 @@
  *
  ******************************************************************************/
 
-#include <phNxpNciHal_utils.h>
 #include <errno.h>
+#include <pthread.h>
+#include <log/log.h>
 #include <phNxpLog.h>
+#include <phNxpNciHal.h>
+#include <phNxpNciHal_utils.h>
 
 /*********************** Link list functions **********************************/
 
@@ -353,6 +356,9 @@ void phNxpNciHal_cleanup_monitor(void) {
 **
 *******************************************************************************/
 phNxpNciHal_Monitor_t* phNxpNciHal_get_monitor(void) {
+  if (nxpncihal_monitor == NULL) {
+    NXPLOG_NCIHAL_E("nxpncihal_monitor is null");
+  }
   return nxpncihal_monitor;
 }
 
@@ -444,18 +450,29 @@ void phNxpNciHal_releaseall_cb_data(void) {
 void phNxpNciHal_print_packet(const char* pString, const uint8_t* p_data,
                               uint16_t len) {
   uint32_t i;
+#if (NXP_EXTNS == TRUE)
+  char* print_buffer = (char* )calloc((len * 3 + 1), sizeof(char));
+  if (NULL != print_buffer) {
+#else
   char print_buffer[len * 3 + 1];
 
   memset(print_buffer, 0, sizeof(print_buffer));
+#endif
   for (i = 0; i < len; i++) {
     snprintf(&print_buffer[i * 2], 3, "%02X", p_data[i]);
   }
   if (0 == memcmp(pString, "SEND", 0x04)) {
-    NXPLOG_NCIX_D("len = %3d => %s", len, print_buffer);
-  } else if (0 == memcmp(pString, "RECV", 0x04)) {
-    NXPLOG_NCIR_D("len = %3d <= %s", len, print_buffer);
+          NXPLOG_NCIX_D("len = %3d > %s", len, print_buffer);
+      }
+      else if (0 == memcmp(pString, "RECV", 0x04)) {
+          NXPLOG_NCIR_D("len = %3d > %s", len, print_buffer);
+      }
+#if (NXP_EXTNS == TRUE)
+      free(print_buffer);
+  } else {
+    NXPLOG_NCIX_E("\nphNxpNciHal_print_packet:Failed to Allocate memory\n");
   }
-
+#endif
   return;
 }
 
