@@ -1,11 +1,13 @@
 # Enable build support for NFC open source vendor modules
-ifeq ($(call is-board-platform-in-list, sdm845 sdm710 msmnile $(MSMSTEPPE) $(TRINKET) kona),true)
+ifeq ($(call is-board-platform-in-list, msm8937_32 msm8937_64 msm8953_32 msm8953_64),true)
 TARGET_USES_NQ_NFC := true
 endif
 
 NQ_VENDOR_NFC += vendor.nxp.hardware.nfc@1.1-service
 NQ_VENDOR_NFC += nfc_nci.nqx.default
 NQ_VENDOR_NFC += nfc_nci.nqx.default.hw
+NQ_VENDOR_NFC += nfc_nci.sn100.default
+NQ_VENDOR_NFC += nfc_nci.sn100.default.hw
 
 ifeq ($(strip $(TARGET_USES_NQ_NFC)),true)
 PRODUCT_COPY_FILES += \
