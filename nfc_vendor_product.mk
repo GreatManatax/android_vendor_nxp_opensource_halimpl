@@ -1,6 +1,9 @@
 # Enable build support for NFC open source vendor modules
 ifeq ($(call is-board-platform-in-list, msm8937 msm8953),true)
 TARGET_USES_NQ_NFC := true
+ifeq ($(TARGET_PRODUCT),msm8937_32go)
+TARGET_USES_NQ_NFC := false
+endif
 endif
 
 NQ_VENDOR_NFC += vendor.nxp.hardware.nfc@1.1-service
