@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 NXP Semiconductors
+ * Copyright (C) 2010-2019 NXP Semiconductors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,9 @@
 #include <phNxpNciHal_utils.h>
 #include "NxpNfcCapability.h"
 #include "hal_nxpnfc.h"
+#ifdef ENABLE_ESE_CLIENT
+#include "eSEClientIntf.h"
+#endif
 
 /********************* Definitions and structures *****************************/
 #define MAX_RETRY_COUNT 5
@@ -31,6 +34,8 @@
 #define NCI_VERSION_1_1 0x11
 #define NCI_VERSION_1_0 0x10
 #define NCI_VERSION_UNKNOWN 0x00
+#define NXP_AUTH_TIMEOUT_BUF_LEN 0x04
+#define SN100_CHIPID "0xa4"
 
 /* Uncomment define ENABLE_ESE_CLIENT to
 enable eSE client */
@@ -70,6 +75,8 @@ typedef void(phNxpNciHal_control_granted_callback_t)();
 #if (NXP_EXTNS == TRUE)
 /* GID: Group Identifier (byte 0) */
 #define NCI_GID_MASK                 0x0F
+#define ORIG_NXPHAL 0x01
+#define ORIG_LIBNFC 0x02
 #endif
 #define NXP_PROPCMD_GID              0x2F
 #define NXP_FLUSH_SRAM_AO_TO_FLASH   0x21
@@ -190,7 +197,7 @@ typedef int (*fpRegRfFwDndl_t)(uint8_t* fw_update_req,
 void phNxpNciHal_initializeRegRfFwDnld();
 void phNxpNciHal_deinitializeRegRfFwDnld();
 #if(NXP_EXTNS == true)
-NFCSTATUS phNxpNciHal_PropEsePowerCycle(void);
+void phNxpNciHal_getNxpConfig(nfc_nci_IoctlInOutData_t *pInpOutData);
 #endif
 /*set config management*/
 
@@ -218,7 +225,8 @@ typedef enum {
   EEPROM_SWP1_INTF,
   EEPROM_SWP1A_INTF,
   EEPROM_SWP2_INTF,
-  EEPROM_FLASH_UPDATE
+  EEPROM_FLASH_UPDATE,
+  EEPROM_AUTH_CMD_TIMEOUT
 } phNxpNci_EEPROM_request_type_t;
 
 typedef struct phNxpNci_EEPROM_info {
@@ -239,6 +247,8 @@ typedef struct phNxpNci_getCfg_info {
   uint8_t atr_res_gen_bytes_len;
   uint8_t pmid_wt[3];
   uint8_t pmid_wt_len;
+  uint8_t auth_cmd_timeout[NXP_AUTH_TIMEOUT_BUF_LEN];
+  uint8_t auth_cmd_timeoutlen;
 } phNxpNci_getCfg_info_t;
 typedef enum {
   NFC_FORUM_PROFILE,
@@ -272,10 +282,18 @@ int phNxpNciHal_check_ncicmd_write_window(uint16_t cmd_len, uint8_t* p_cmd);
 void phNxpNciHal_request_control(void);
 void phNxpNciHal_release_control(void);
 NFCSTATUS phNxpNciHal_send_get_cfgs();
-int phNxpNciHal_write_unlocked(uint16_t data_len, const uint8_t* p_data);
+int phNxpNciHal_write_unlocked(uint16_t data_len, const uint8_t *p_data,
+                               int origin);
 NFCSTATUS request_EEPROM(phNxpNci_EEPROM_info_t* mEEPROM_info);
-NFCSTATUS phNxpNciHal_send_nfcee_pwr_cntl_cmd(uint8_t type);
+int phNxpNciHal_check_config_parameter();
+NFCSTATUS phNxpNciHal_fw_download(void);
+NFCSTATUS phNxpNciHal_nfcc_core_reset_init();
+int phNxpNciHal_fw_mw_ver_check();
+NFCSTATUS phNxpNciHal_check_clock_config(void);
+NFCSTATUS phNxpNciHal_china_tianjin_rf_setting(void);
+NFCSTATUS phNxpNciHal_CheckValidFwVersion(void);
 
+NFCSTATUS phNxpNciHal_send_nfcee_pwr_cntl_cmd(uint8_t type);
 /*******************************************************************************
 **
 ** Function         phNxpNciHal_configFeatureList
@@ -290,17 +308,5 @@ NFCSTATUS phNxpNciHal_send_nfcee_pwr_cntl_cmd(uint8_t type);
 ** Returns          none
 *******************************************************************************/
 void phNxpNciHal_configFeatureList(uint8_t* init_rsp, uint16_t rsp_len);
-
-/*******************************************************************************
-**
-** Function         phNxpNciHal_getChipType
-**
-** Description      Gets the chipType which is configured during bootup
-**
-** Parameters       none
-**
-** Returns          chipType
-*******************************************************************************/
-tNFC_chipType phNxpNciHal_getChipType();
 
 #endif /* _PHNXPNCIHAL_H_ */

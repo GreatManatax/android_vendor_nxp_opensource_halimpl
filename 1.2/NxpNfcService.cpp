@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2018-2019 NXP
+ *  Copyright 2019 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,17 +16,19 @@
  *
  ******************************************************************************/
 
-#define LOG_TAG "nxpnfc@1.0-service"
+#define LOG_TAG "nxpnfc@2.0-service"
 #include <android/hardware/nfc/1.1/INfc.h>
 #include <vendor/nxp/nxpnfc/1.0/INxpNfc.h>
+#include <unistd.h>
 
 #include <hidl/LegacySupport.h>
 #include "Nfc.h"
 #include "NxpNfc.h"
+#include "eSEClientExtns.h"
 
 // Generated HIDL files
-using android::hardware::nfc::V1_1::INfc;
-using android::hardware::nfc::V1_1::implementation::Nfc;
+using android::hardware::nfc::V1_2::INfc;
+using android::hardware::nfc::V1_2::implementation::Nfc;
 using android::hardware::configureRpcThreadpool;
 using android::hardware::joinRpcThreadpool;
 using android::sp;
@@ -36,27 +38,42 @@ using vendor::nxp::nxpnfc::V1_0::INxpNfc;
 using vendor::nxp::nxpnfc::V1_0::implementation::NxpNfc;
 
 int main() {
+    status_t status;
 
+    sp<INfc> nfc_service = nullptr;
+    sp<INxpNfc> nxp_nfc_service = nullptr;
 
-  ALOGD("Registering NFC HALIMPL Service v1.1...");
-  sp<INfc> nfc_service = new Nfc();
-
-    configureRpcThreadpool(1, true /*callerWillJoin*/);
-  status_t status = nfc_service->registerAsService();
-    if (status != OK) {
-    LOG_ALWAYS_FATAL("Could not register service for NFC HAL Iface (%d).",
-                     status);
+    ALOGD("NFC HAL Service 1.2 is starting.");
+    nfc_service = new Nfc();
+    if (nfc_service == nullptr) {
+        ALOGE("Can not create an instance of NFC HAL Iface, exiting.");
         return -1;
     }
 
-    ALOGD("Registering NFC HALIOCTL Service v1.0...");
-    sp<INxpNfc> nxp_nfc_service = new NxpNfc();
+    configureRpcThreadpool(1, true /*callerWillJoin*/);
+    initializeEseClient();
+    checkEseClientUpdate();
+    status = nfc_service->registerAsService();
+    if (status != OK) {
+        LOG_ALWAYS_FATAL("Could not register service for NFC HAL Iface (%d).", status);
+        return -1;
+    }
+
+    ALOGI("NXP NFC Extn Service 1.0 is starting.");
+    nxp_nfc_service = new NxpNfc();
+    if (nxp_nfc_service == nullptr) {
+        ALOGE("Can not create an instance of NXP NFC Extn Iface, exiting.");
+        return -1;
+    }
 
     status = nxp_nfc_service->registerAsService();
     if (status != OK) {
-        ALOGD("Could not register service for NXP NFC Extn Iface (%d).", status);
+        ALOGE("Could not register service for NXP NFC Extn Iface (%d).", status);
     }
-    ALOGD("NFC HAL Service is ready");
+    ALOGE("Before calling JCOP JCOS_doDownload");
+    perform_eSEClientUpdate();
+    ALOGE("After calling JCOS_doDownload");
+    ALOGI("NFC service is ready");
     joinRpcThreadpool();
     return 1;
 }

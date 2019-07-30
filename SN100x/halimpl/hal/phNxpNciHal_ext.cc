@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2018 NXP Semiconductors
+ * Copyright (C) 2012-2019 NXP Semiconductors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,15 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <log/log.h>
 #include <phDal4Nfc_messageQueueLib.h>
 #include <phNxpConfig.h>
 #include <phNxpLog.h>
 #include <phNxpNciHal.h>
 #include <phNxpNciHal_Adaptation.h>
 #include "hal_nxpnfc.h"
-#ifdef ENABLE_ESE_CLIENT
-#include "hal_nxpese.h"
-#endif
 #include <phNxpNciHal_NfcDepSWPrio.h>
 #include <phNxpNciHal_ext.h>
 #include <phTmlNfc.h>
@@ -90,7 +88,9 @@ static NFCSTATUS phNxpNciHal_ext_process_nfc_init_rsp(uint8_t* p_ntf,
 *******************************************************************************/
 void phNxpNciHal_ext_init(void) {
   icode_detected = 0x00;
-  icode_send_eof = 0x00;
+  if(nfcFL.chipType != sn100u){
+    icode_send_eof = 0x00;
+  }
   setEEModeDone = 0x00;
   EnableP2P_PrioLogic = false;
 }
@@ -133,6 +133,15 @@ NFCSTATUS phNxpNciHal_process_ext_rsp(uint8_t* p_ntf, uint16_t* p_len) {
       phNxpNciHal_parsePacket(p_ntf,*p_len);
   }
 #endif
+
+  if (p_ntf[0] == 0x61 && p_ntf[1] == 0x05 && *p_len < 14) {
+    if(*p_len <= 6) {
+      android_errorWriteLog(0x534e4554, "118152591");
+    }
+    NXPLOG_NCIHAL_E("RF_INTF_ACTIVATED_NTF length error!");
+    status = NFCSTATUS_FAILED;
+    return status;
+  }
 
   if (p_ntf[0] == 0x61 && p_ntf[1] == 0x05 && p_ntf[4] == 0x03 &&
       p_ntf[5] == 0x05 && nxpprofile_ctrl.profile_type == EMV_CO_PROFILE) {
@@ -276,15 +285,16 @@ NFCSTATUS phNxpNciHal_process_ext_rsp(uint8_t* p_ntf, uint16_t* p_len) {
       nxpncihal_ctrl.nci_info.wait_for_ntf = TRUE;
       NXPLOG_NCIHAL_D(" Mode set received");
     }
-  } else if (p_ntf[0] == 0x61 && p_ntf[1] == 0x05 && p_ntf[2] == 0x15 &&
-      p_ntf[4] == 0x01 && p_ntf[5] == 0x06 && p_ntf[6] == 0x06) {
+  } else if (p_ntf[0] == 0x61 && p_ntf[1] == 0x05 && p_ntf[2] == 0x15
+          && p_ntf[4] == 0x01 && p_ntf[5] == 0x06 && p_ntf[6] == 0x06) {
     NXPLOG_NCIHAL_D("> Going through workaround - notification of ISO 15693");
     icode_detected = 0x01;
     p_ntf[21] = 0x01;
     p_ntf[22] = 0x01;
-  } else if (icode_detected == 1 && icode_send_eof == 2) {
+  } else if (nfcFL.chipType != sn100u && icode_detected == 1 && icode_send_eof == 2) {
     icode_send_eof = 3;
-  } else if (p_ntf[0] == 0x00 && p_ntf[1] == 0x00 && icode_detected == 1) {
+  } else if (nfcFL.chipType != sn100u && p_ntf[0] == 0x00 && p_ntf[1] == 0x00 &&
+          icode_detected == 1) {
     if (icode_send_eof == 3) {
       icode_send_eof = 0;
     }
@@ -297,12 +307,14 @@ NFCSTATUS phNxpNciHal_process_ext_rsp(uint8_t* p_ntf, uint16_t* p_len) {
         p_ntf[p_ntf[2] + 2] |= 0x01;
       }
     }
-  } else if (p_ntf[2] == 0x02 && p_ntf[1] == 0x00 && icode_detected == 1) {
+  } else if (nfcFL.chipType != sn100u && p_ntf[2] == 0x02 &&
+          p_ntf[1] == 0x00 && icode_detected == 1) {
     NXPLOG_NCIHAL_D("> ICODE EOF response do not send to upper layer");
   } else if (p_ntf[0] == 0x61 && p_ntf[1] == 0x06 && icode_detected == 1) {
     NXPLOG_NCIHAL_D("> Polling Loop Re-Started");
     icode_detected = 0;
-    icode_send_eof = 0;
+    if (nfcFL.chipType != sn100u)
+      icode_send_eof = 0;
   } else if (*p_len == 4 && p_ntf[0] == 0x40 && p_ntf[1] == 0x02 &&
              p_ntf[2] == 0x01 && p_ntf[3] == 0x06) {
     NXPLOG_NCIHAL_D("> Deinit workaround for LLCP set_config 0x%x 0x%x 0x%x",
@@ -394,36 +406,6 @@ NFCSTATUS phNxpNciHal_process_ext_rsp(uint8_t* p_ntf, uint16_t* p_len) {
     }
   }
 
-  if(nfcFL.chipType != sn100u) {
-  if (*p_len == 4 && p_ntf[0] == 0x61 && p_ntf[1] == 0x07 ) {
-    unsigned long rf_update_enable = 0;
-    if(GetNxpNumValue(NAME_RF_STATUS_UPDATE_ENABLE, &rf_update_enable, sizeof(unsigned long))) {
-      NXPLOG_NCIHAL_D(
-        "RF_STATUS_UPDATE_ENABLE : %lu",rf_update_enable);
-    }
-    if(rf_update_enable == 0x01) {
-      nfc_nci_IoctlInOutData_t inpOutData;
-      uint8_t rf_state_update[] = {0x00};
-      memset(&inpOutData, 0x00, sizeof(nfc_nci_IoctlInOutData_t));
-      inpOutData.inp.data.nciCmd.cmd_len = sizeof(rf_state_update);
-      rf_state_update[0]=p_ntf[3];
-      memcpy(inpOutData.inp.data.nciCmd.p_cmd, rf_state_update,sizeof(rf_state_update));
-      inpOutData.inp.data_source = 2;
-      phNxpNciHal_ioctl(HAL_NFC_IOCTL_RF_STATUS_UPDATE, &inpOutData);
-    }
-  }
-  }
-  /*
-  else if(p_ntf[0] == 0x61 && p_ntf[1] == 0x05 && p_ntf[4] == 0x01 && p_ntf[5]
-  == 0x00 && p_ntf[6] == 0x01)
-  {
-      NXPLOG_NCIHAL_D("Picopass type 3-B with undefined protocol is not
-  supported, disabling");
-      p_ntf[4] = 0xFF;
-      p_ntf[5] = 0xFF;
-      p_ntf[6] = 0xFF;
-  }*/
-
   return status;
 }
 
@@ -458,8 +440,7 @@ static NFCSTATUS phNxpNciHal_ext_process_nfc_init_rsp(uint8_t* p_ntf, uint16_t* 
       } else
           status = NFCSTATUS_FAILED;
     } else if (p_ntf[0] == NCI_MT_NTF && ((p_ntf[1] & NCI_OID_MASK) == NCI_MSG_CORE_RESET)) {
-        if(p_ntf[3] == CORE_RESET_TRIGGER_TYPE_CORE_RESET_CMD_RECEIVED ||
-           p_ntf[3] == CORE_RESET_TRIGGER_TYPE_POWERED_ON) {
+        if(p_ntf[3] == CORE_RESET_TRIGGER_TYPE_CORE_RESET_CMD_RECEIVED) {
           NXPLOG_NCIHAL_D("CORE_RESET_NTF NCI2.0 reason CORE_RESET_CMD received !");
           nxpncihal_ctrl.nci_info.nci_version  = p_ntf[5];
           if(!nxpncihal_ctrl.hal_open_status)
@@ -533,7 +514,7 @@ static NFCSTATUS phNxpNciHal_process_ext_cmd_rsp(uint16_t cmd_len,
   nxpncihal_ctrl.ext_cb_data.status = NFCSTATUS_SUCCESS;
 
   /* Send ext command */
-  data_written = phNxpNciHal_write_unlocked(cmd_len, p_cmd);
+  data_written = phNxpNciHal_write_unlocked(cmd_len, p_cmd, ORIG_NXPHAL);
   if (data_written != cmd_len) {
     NXPLOG_NCIHAL_D("phNxpNciHal_write failed for hal ext");
     goto clean_and_return;
@@ -597,7 +578,7 @@ static NFCSTATUS phNxpNciHal_process_ext_cmd_rsp(uint16_t cmd_len,
     }
   }
 
-  if (nxpncihal_ctrl.ext_cb_data.status != NFCSTATUS_SUCCESS && p_cmd[0] != 0x2F && p_cmd[1] != 0x1 &&  p_cmd[2] == 0x01) {
+  if (nxpncihal_ctrl.ext_cb_data.status != NFCSTATUS_SUCCESS) {
     NXPLOG_NCIHAL_E(
         "Callback Status is failed!! Timer Expired!! Couldn't read it! 0x%x",
         nxpncihal_ctrl.ext_cb_data.status);
@@ -611,6 +592,7 @@ static NFCSTATUS phNxpNciHal_process_ext_cmd_rsp(uint16_t cmd_len,
 clean_and_return:
   phNxpNciHal_cleanup_cb_data(&nxpncihal_ctrl.ext_cb_data);
   nxpncihal_ctrl.nci_info.wait_for_ntf = FALSE;
+  HAL_DISABLE_EXT();
   return status;
 }
 
@@ -696,7 +678,9 @@ NFCSTATUS phNxpNciHal_write_ext(uint16_t* cmd_len, uint8_t* p_cmd_data,
       (nxpprofile_ctrl.profile_type == NFC_FORUM_PROFILE)) {
     unsigned long retval = 0;
 
-    GetNxpNumValue(NAME_MIFARE_READER_ENABLE, &retval, sizeof(unsigned long));
+    if (!GetNxpNumValue(NAME_MIFARE_READER_ENABLE, &retval, sizeof(unsigned long))) {
+      NXPLOG_NCIHAL_E("Reading of MIFARE_READER_ENABLE failed. Default retval = %lu", retval);
+    }
     if(retval == 0x01) {
       NXPLOG_NCIHAL_D("Going through extns - Adding Mifare in RF Discovery");
       p_cmd_data[2] += 3;
@@ -709,8 +693,9 @@ NFCSTATUS phNxpNciHal_write_ext(uint16_t* cmd_len, uint8_t* p_cmd_data,
       NXPLOG_NCIHAL_D(
           "Going through extns - Adding Mifare in RF Discovery - END");
     }
-  } else if (p_cmd_data[3] == 0x81 && p_cmd_data[4] == 0x01 &&
-             p_cmd_data[5] == 0x03) {
+  } else if ((*cmd_len >= 6) &&
+             (p_cmd_data[3] == 0x81 && p_cmd_data[4] == 0x01 &&
+              p_cmd_data[5] == 0x03)) {
     NXPLOG_NCIHAL_D("> Going through the set host list");
         if(nfcFL.chipType == sn100u)
         {
@@ -733,7 +718,7 @@ NFCSTATUS phNxpNciHal_write_ext(uint16_t* cmd_len, uint8_t* p_cmd_data,
         }
     status = NFCSTATUS_SUCCESS;
   } else if (icode_detected) {
-    if ((p_cmd_data[3] & 0x40) == 0x40 &&
+    if (nfcFL.chipType != sn100u && (p_cmd_data[3] & 0x40) == 0x40 &&
         (p_cmd_data[4] == 0x21 || p_cmd_data[4] == 0x22 ||
          p_cmd_data[4] == 0x24 || p_cmd_data[4] == 0x27 ||
          p_cmd_data[4] == 0x28 || p_cmd_data[4] == 0x29 ||
@@ -750,7 +735,9 @@ NFCSTATUS phNxpNciHal_write_ext(uint16_t* cmd_len, uint8_t* p_cmd_data,
   } else if (p_cmd_data[0] == 0x21 && p_cmd_data[1] == 0x03) {
     NXPLOG_NCIHAL_D("> Polling Loop Started");
     icode_detected = 0;
-    icode_send_eof = 0;
+    if(nfcFL.chipType != sn100u){
+      icode_send_eof = 0;
+    }
   }
   // 22000100
   else if (p_cmd_data[0] == 0x22 && p_cmd_data[1] == 0x00 &&
@@ -906,12 +893,10 @@ NFCSTATUS phNxpNciHal_write_ext(uint16_t* cmd_len, uint8_t* p_cmd_data,
  ******************************************************************************/
 NFCSTATUS phNxpNciHal_send_ext_cmd(uint16_t cmd_len, uint8_t* p_cmd) {
   NFCSTATUS status = NFCSTATUS_FAILED;
-  HAL_ENABLE_EXT();
   nxpncihal_ctrl.cmd_len = cmd_len;
   memcpy(nxpncihal_ctrl.p_cmd_data, p_cmd, cmd_len);
   status = phNxpNciHal_process_ext_cmd_rsp(nxpncihal_ctrl.cmd_len,
                                            nxpncihal_ctrl.p_cmd_data);
-  HAL_DISABLE_EXT();
 
   return status;
 }
@@ -950,6 +935,7 @@ static void hal_extns_write_rsp_timeout_cb(uint32_t timerId, void* pContext) {
   NXPLOG_NCIHAL_E("hal_extns_write_rsp_timeout_cb - write timeout!!!");
   nxpncihal_ctrl.ext_cb_data.status = NFCSTATUS_FAILED;
   usleep(1);
+  sem_post(&(nxpncihal_ctrl.syncSpiNfc));
   SEM_POST(&(nxpncihal_ctrl.ext_cb_data));
 
   return;
@@ -1073,6 +1059,14 @@ NFCSTATUS request_EEPROM(phNxpNci_EEPROM_info_t* mEEPROM_info) {
       addr[0] = 0xA0;
       addr[1] = 0x0F;
       break;
+    case EEPROM_AUTH_CMD_TIMEOUT:
+      mEEPROM_info->update_mode = BYTEWISE;
+      memIndex = 0x00;
+      fieldLen = 0x05;
+      len = fieldLen + 4;
+      addr[0] = 0xA0;
+      addr[1] = 0xF7;
+      break;
     default:
       ALOGE("No valid request information found");
       break;
@@ -1174,64 +1168,6 @@ retryget:
 
 /*******************************************************************************
  **
- ** Function:        phNxpNciHal_CheckFwRegFlashRequired()
- **
- ** Description:     Updates FW and Reg configurations if required
- **
- ** Returns:         status
- **
- ********************************************************************************/
-int phNxpNciHal_CheckFwRegFlashRequired(uint8_t* fw_update_req,
-                                        uint8_t* rf_update_req,
-                                        uint8_t skipEEPROMRead) {
-  NXPLOG_NCIHAL_D("phNxpNciHal_CheckFwRegFlashRequired() : enter");
-  UNUSED_PROP(rf_update_req);
-  int status = NFCSTATUS_OK;
-  long option;
-  if (fpRegRfFwDndl != NULL) {
-    status = fpRegRfFwDndl(fw_update_req, rf_update_req, skipEEPROMRead);
-  } else {
-    status = phDnldNfc_InitImgInfo();
-    NXPLOG_NCIHAL_D("FW version of the libsn100u.so binary = 0x%x", wFwVer);
-    NXPLOG_NCIHAL_D("FW version found on the device = 0x%x", wFwVerRsp);
-
-  if (!GetNxpNumValue(NAME_NXP_FLASH_CONFIG, &option, sizeof(unsigned long))) {
-    NXPLOG_NCIHAL_D("Flash option not found; giving default value");
-    option = 1;
-  }
-    switch (option) {
-      case FLASH_UPPER_VERSION:
-        wFwUpdateReq = (utf8_t)wFwVer > (utf8_t)wFwVerRsp ? true : false;
-        break;
-      case FLASH_DIFFERENT_VERSION:
-        wFwUpdateReq = ((wFwVerRsp & 0x0000FFFF) != wFwVer) ? true : false;
-        break;
-      case FLASH_ALWAYS:
-        wFwUpdateReq = true;
-        break;
-      default:
-        NXPLOG_NCIHAL_D("Invalid flash option selected");
-        status = NFCSTATUS_INVALID_PARAMETER;
-        break;
-    }
-  }
-  *fw_update_req = wFwUpdateReq;
-
-  if (false == wFwUpdateReq) {
-    NXPLOG_NCIHAL_D("FW update not required");
-    phDnldNfc_ReSetHwDevHandle();
-  } else {
-    property_set("nfc.fw.downloadmode_force", "1");
-  }
-
-  NXPLOG_NCIHAL_D("phNxpNciHal_CheckFwRegFlashRequired() : exit - status = %x "
-                   "wFwUpdateReq=%u, wRfUpdateReq=%u", status, *fw_update_req,
-                  *rf_update_req);
-  return status;
-}
-
-/*******************************************************************************
- **
  ** Function:        phNxpNciHal_enableDefaultUICC2SWPline()
  **
  ** Description:     Select UICC2 or UICC3
@@ -1248,7 +1184,7 @@ NFCSTATUS phNxpNciHal_enableDefaultUICC2SWPline(uint8_t uicc2_sel) {
   NXPLOG_NCIHAL_D("phNxpNciHal_enableDefaultUICC2SWPline %d",uicc2_sel);
   p_data[LEN_INDEX] = 1;
   p += 4;
-    if(uicc2_sel & 0x04) {
+    if(uicc2_sel == 0x03) {
       UINT8_TO_STREAM(p, NXP_NFC_SET_CONFIG_PARAM_EXT);
       UINT8_TO_STREAM(p, NXP_NFC_PARAM_ID_SWP2);
       UINT8_TO_STREAM(p, 0x01);
@@ -1256,7 +1192,7 @@ NFCSTATUS phNxpNciHal_enableDefaultUICC2SWPline(uint8_t uicc2_sel) {
       p_data[LEN_INDEX]+= 4;
       p_data[PARAM_INDEX]+= 1;
     }
-    if(uicc2_sel & 0x08) {
+    if(uicc2_sel == 0x04) {
       UINT8_TO_STREAM(p, NXP_NFC_SET_CONFIG_PARAM_EXT);
       UINT8_TO_STREAM(p, NXP_NFC_PARAM_ID_SWPUICC3);
       UINT8_TO_STREAM(p, 0x01);
