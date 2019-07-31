@@ -5012,6 +5012,7 @@ extern "C" hal_api_struct_t const api_funcs = {
   phNxpNciHal_do_factory_reset,
   phNxpNciHal_configDiscShutdown,
   phNxpNciHal_getVendorConfig,
+  phNxpNciHal_getVendorConfig_1_2,
   phNxpNciHal_ioctl,
   phNxpNciHal_get_debug_status,
   phNxpNciHal_getNfcChipId,

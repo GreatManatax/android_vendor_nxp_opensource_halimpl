@@ -52,8 +52,10 @@ typedef struct HAL_API_struct {
     void(*phNxpNciHal_do_factory_reset)(void);
     // phNxpNciHal_configDiscShutdown
     int(*phNxpNciHal_configDiscShutdown)(void);
-    // phNxpNciHal_getVendorConfig
-    void(*phNxpNciHal_getVendorConfig)(NfcConfig&);
+    // phNxpNciHal_getVendorConfig_V_1_1
+    void(*phNxpNciHal_getVendorConfig)(android::hardware::nfc::V1_1::NfcConfig&);
+    // phNxpNciHal_getVendorConfig_V_1_2
+    void(*phNxpNciHal_getVendorConfig_1_2)(NfcConfig&);
     // phNxpNciHal_ioctl
     int(*phNxpNciHal_ioctl)(long, void*);
     // phNxpNciHal_get_debug_status
