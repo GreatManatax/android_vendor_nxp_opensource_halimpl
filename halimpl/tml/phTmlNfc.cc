@@ -508,14 +508,14 @@ static void* phTmlNfc_TmlWriterThread(void* pParam) {
         if (-1 == dwNoBytesWrRd) {
           if (getDownloadFlag() == true) {
             if (retry_cnt++ < MAX_WRITE_RETRY_COUNT) {
-              NXPLOG_NCIHAL_E("PN54X - Error in I2C Write  - Retry 0x%x",
+              NXPLOG_NCIHAL_D("PN54X - Error in I2C Write  - Retry 0x%x",
                               retry_cnt);
               // Add a 10 ms delay to ensure NFCC is not still in stand by mode.
               usleep(10 * 1000);
               goto retry;
             }
           }
-          NXPLOG_TML_E("PN54X - Error in I2C Write.....\n");
+          NXPLOG_TML_D("PN54X - Error in I2C Write.....\n");
           wStatus = PHNFCSTVAL(CID_NFC_TML, NFCSTATUS_FAILED);
         } else {
           phNxpNciHal_print_packet("SEND",
@@ -656,16 +656,10 @@ NFCSTATUS phTmlNfc_Shutdown(void) {
   if (NULL != gpphTmlNfc_Context) {
     /* Reset thread variable to terminate the thread */
     gpphTmlNfc_Context->bThreadDone = 0;
-    usleep(1000);
     /* Clear All the resources allocated during initialization */
     sem_post(&gpphTmlNfc_Context->rxSemaphore);
-    usleep(1000);
     sem_post(&gpphTmlNfc_Context->txSemaphore);
-    usleep(1000);
     sem_post(&gpphTmlNfc_Context->postMsgSemaphore);
-    usleep(1000);
-    sem_post(&gpphTmlNfc_Context->postMsgSemaphore);
-    usleep(1000);
     pthread_mutex_destroy(&gpphTmlNfc_Context->readInfoUpdateMutex);
     if (0 != pthread_join(gpphTmlNfc_Context->readerThread, (void**)NULL)) {
       NXPLOG_TML_E("Fail to kill reader thread!");
