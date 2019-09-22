@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  *
- *  Copyright (C) 2015 NXP Semiconductors
+ *  Copyright (C) 2015-2019 NXP Semiconductors
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,13 +20,17 @@
 #include <pthread.h>
 
 #include "ese_hal_api.h"
+#ifdef ENABLE_ESE_CLIENT
 #include "hal_nxpese.h"
+#endif
 #include <utils/RefBase.h>
 #include <android/hardware/secure_element/1.0/ISecureElement.h>
 #include <android/hardware/secure_element/1.0/ISecureElementHalCallback.h>
 #include <android/hardware/secure_element/1.0/types.h>
+#ifdef ENABLE_ESE_CLIENT
 #include <vendor/nxp/nxpese/1.0/INxpEse.h>
 using vendor::nxp::nxpese::V1_0::INxpEse;
+#endif
 
 class ThreadMutex {
  public:
@@ -74,7 +78,9 @@ class EseAdaptation {
   static EseAdaptation& GetInstance();
   static int HalIoctl(long arg, void* p_data);
   tHAL_ESE_ENTRY* GetHalEntryFuncs();
+#ifdef ENABLE_ESE_CLIENT
   ese_nxp_IoctlInOutData_t* mCurrentIoctlData;
+#endif
   tHAL_ESE_ENTRY mSpiHalEntryFuncs;  // function pointers for HAL entry points
 
  private:
@@ -91,9 +97,10 @@ class EseAdaptation {
   static ThreadCondVar mHalIoctlEvent;
   static android::sp<android::hardware::secure_element::V1_0::ISecureElement>
       mHal;
+#ifdef ENABLE_ESE_CLIENT
   static android::sp<vendor::nxp::nxpese::V1_0::INxpEse> mHalNxpEse;
+#endif
 #if (NXP_EXTNS == TRUE)
-  pthread_t mThreadId;
   static ThreadCondVar mHalCoreResetCompletedEvent;
   static ThreadCondVar mHalCoreInitCompletedEvent;
   static ThreadCondVar mHalInitCompletedEvent;

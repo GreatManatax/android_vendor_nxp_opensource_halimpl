@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 NXP Semiconductors
+ * Copyright (C) 2015-2019 NXP Semiconductors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,9 @@
 #include <phNxpNciHal_utils.h>
 #include "NxpNfcCapability.h"
 #include "hal_nxpnfc.h"
+#ifdef ENABLE_ESE_CLIENT
+#include "EseUpdateChecker.h"
+#endif
 
 /********************* Definitions and structures *****************************/
 #define MAX_RETRY_COUNT 5
@@ -37,6 +40,7 @@
 #define NCI_VERSION_1_1 0x11
 #define NCI_VERSION_1_0 0x10
 #define NCI_VERSION_UNKNOWN 0x00
+#define NQ_330_440_CHIPID "0x51"
 
 /* Uncomment define ENABLE_ESE_CLIENT to
 enable eSE client */
@@ -96,6 +100,11 @@ typedef struct phNxpNciGpioInfo {
   uint8_t values[2];
 } phNxpNciGpioInfo_t;
 
+#ifdef ENABLE_ESE_CLIENT
+extern ESE_UPDATE_STATE eseUpdateSpi;
+extern ESE_UPDATE_STATE eseUpdateDwp;
+#endif
+
 /* Macros to enable and disable extensions */
 #define HAL_ENABLE_EXT() (nxpncihal_ctrl.hal_ext_enabled = 1)
 #define HAL_DISABLE_EXT() (nxpncihal_ctrl.hal_ext_enabled = 0)
@@ -103,7 +112,6 @@ typedef struct phNxpNciGpioInfo {
 typedef struct phNxpNciInfo {
   uint8_t   nci_version;
   bool_t    wait_for_ntf;
-  uint8_t   lastResetNtfReason;
 }phNxpNciInfo_t;
 /* NCI Control structure */
 typedef struct phNxpNciHal_Control {
@@ -152,6 +160,7 @@ typedef struct phNxpNciHal_Control {
   /* to store and restore gpio values */
   phNxpNciGpioInfo_t phNxpNciGpioInfo;
   bool bIsForceFwDwnld;
+  bool isHciCfgEvtRequested;
 } phNxpNciHal_Control_t;
 
 typedef struct {
@@ -253,7 +262,6 @@ void phNxpNciHal_request_control(void);
 void phNxpNciHal_release_control(void);
 NFCSTATUS phNxpNciHal_send_get_cfgs();
 int phNxpNciHal_write_unlocked(uint16_t data_len, const uint8_t* p_data);
-static __attribute__((unused)) int phNxpNciHal_fw_mw_ver_check();
 NFCSTATUS request_EEPROM(phNxpNci_EEPROM_info_t* mEEPROM_info);
 NFCSTATUS phNxpNciHal_send_nfcee_pwr_cntl_cmd(uint8_t type);
 

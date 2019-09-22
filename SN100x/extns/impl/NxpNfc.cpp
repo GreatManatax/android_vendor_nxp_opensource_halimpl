@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2018 NXP
+ *  Copyright 2018-2019 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@
 
 #include "NxpNfc.h"
 #include "phNxpNciHal_Adaptation.h"
-#include "hal_nxpese.h"
+#include "hal_nxpnfc.h"
 #include "eSEClientIntf.h"
 #include "phNxpNciHal.h"
-#include "eSEClient.h"
+#include "eSEClientExtns.h"
 
 extern bool nfc_debug_enabled;
 
@@ -43,16 +43,16 @@ Return<void> NxpNfc::ioctl(uint64_t ioctlType, const hidl_vec<uint8_t>& inOutDat
     /*data from proxy->stub is copied to local data which can be updated by
      * underlying HAL implementation since its an inout argument*/
     memcpy(&inpOutData,pInOutData,sizeof(nfc_nci_IoctlInOutData_t));
-  if (ioctlType == HAL_NFC_IOCTL_SET_TRANSIT_CONFIG) {
-    /*As transit configurations are appended at the end of
-    nfc_nci_IoctlInOutData_t, Assign appropriate pointer to TransitConfig*/
-    if (inpOutData.inp.data.transitConfig.len == 0) {
-      inpOutData.inp.data.transitConfig.val = NULL;
-    } else {
-      inpOutData.inp.data.transitConfig.val =
-          ((char *)pInOutData) + sizeof(nfc_nci_IoctlInOutData_t);
+    if (ioctlType == HAL_NFC_IOCTL_SET_TRANSIT_CONFIG) {
+      /*As transit configurations are appended at the end of
+      nfc_nci_IoctlInOutData_t, Assign appropriate pointer to TransitConfig*/
+      if (inpOutData.inp.data.transitConfig.len == 0) {
+        inpOutData.inp.data.transitConfig.val = NULL;
+      } else {
+        inpOutData.inp.data.transitConfig.val =
+            ((char *)pInOutData) + sizeof(nfc_nci_IoctlInOutData_t);
       }
-  }
+    }
     status = phNxpNciHal_ioctl(ioctlType, &inpOutData);
     if(HAL_NFC_IOCTL_ESE_JCOP_DWNLD == ioctlType)
     {
@@ -64,10 +64,15 @@ Return<void> NxpNfc::ioctl(uint64_t ioctlType, const hidl_vec<uint8_t>& inOutDat
         seteSEClientState(pInOutData->inp.data.nciCmd.p_cmd[0]);
         eSEClientUpdate_NFC_Thread();
       }
+      if (pInOutData->inp.data.nciCmd.p_cmd[0] == ESE_UPDATE_COMPLETED) {
+        status =
+            phNxpNciHal_ioctl(HAL_NFC_IOCTL_ESE_UPDATE_COMPLETE, &inpOutData);
+      }
     }
     else if(HAL_NFC_IOCTL_GET_ESE_UPDATE_STATE == ioctlType)
     {
-	inpOutData.out.data.status = (getJcopUpdateRequired() | (getLsUpdateRequired() << 8));
+      inpOutData.out.data.status =
+          (getJcopUpdateRequired() | (getLsUpdateRequired() << 8));
     }
     /*copy data and additional fields indicating status of ioctl operation
      * and context of the caller. Then invoke the corresponding proxy callback*/

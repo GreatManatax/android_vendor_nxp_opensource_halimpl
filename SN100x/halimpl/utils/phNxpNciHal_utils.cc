@@ -1,24 +1,6 @@
 /*
- * Copyright (C) 2010 The Android Open Source Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-/******************************************************************************
- *
- *  The original Work has been changed by NXP Semiconductors.
- *
- *  Copyright (C) 2015 NXP Semiconductors
+ *  Copyright (C) 2013-2019 NXP Semiconductors
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -33,10 +15,10 @@
  *  limitations under the License.
  *
  ******************************************************************************/
-
 #include <errno.h>
 #include <pthread.h>
 #include <log/log.h>
+
 #include <phNxpLog.h>
 #include <phNxpNciHal.h>
 #include <phNxpNciHal_utils.h>
@@ -108,7 +90,6 @@ int listAdd(struct listHead* pList, void* pData) {
   }
   pNode->pData = pData;
   pNode->pNext = NULL;
-
   pthread_mutex_lock(&pList->mutex);
 
   /* Add the node to the list */
@@ -458,10 +439,10 @@ void phNxpNciHal_print_packet(const char* pString, const uint8_t* p_data,
 
   memset(print_buffer, 0, sizeof(print_buffer));
 #endif
-  for (i = 0; i < len; i++) {
-    snprintf(&print_buffer[i * 2], 3, "%02X", p_data[i]);
-  }
-  if (0 == memcmp(pString, "SEND", 0x04)) {
+      for (i = 0; i < len; i++) {
+          snprintf(&print_buffer[i * 2], 3, "%02X", p_data[i]);
+      }
+      if (0 == memcmp(pString, "SEND", 0x04)) {
           NXPLOG_NCIX_D("len = %3d > %s", len, print_buffer);
       }
       else if (0 == memcmp(pString, "RECV", 0x04)) {
@@ -490,6 +471,7 @@ void phNxpNciHal_print_packet(const char* pString, const uint8_t* p_data,
 void phNxpNciHal_emergency_recovery(uint8_t status) {
   NXPLOG_NCIHAL_D("%s: %d", __func__, status);
   switch(status){
+  case CORE_RESET_TRIGGER_TYPE_POWERED_ON:
   case NCI2_0_CORE_RESET_TRIGGER_TYPE_OVER_TEMPERATURE:
       NXPLOG_NCIHAL_E("abort()");
       abort();

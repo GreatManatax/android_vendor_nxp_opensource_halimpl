@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 NXP Semiconductors
+ * Copyright (C) 2010-2019 NXP Semiconductors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@
 #include <phTmlNfc_i2c.h>
 #include <string.h>
 #include "phNxpNciHal_utils.h"
-#include <cutils/properties.h>
+#include "phNxpConfig.h"
 
 #define CRC_LEN 2
 #define NORMAL_MODE_HEADER_LEN 3
@@ -43,14 +43,13 @@
 #define NORMAL_MODE_LEN_OFFSET 2
 #define FRAGMENTSIZE_MAX PHNFC_I2C_FRAGMENT_SIZE
 
-#define SN100_A3 "0xa3"
-#define SN100_A4 "0xa4"
-
 static bool_t bFwDnldFlag = false;
 extern phTmlNfc_i2cfragmentation_t fragmentation_enabled;
 bool_t notifyFwrequest;
 #if(NXP_EXTNS == TRUE)
 sem_t txrxSemaphore;
+static int phTmlNfc_sem_timed_wait();
+static void phTmlNfc_sem_post();
 #endif
 /*******************************************************************************
 **
@@ -90,8 +89,7 @@ void phTmlNfc_i2c_close(void* pDevHandle) {
 NFCSTATUS phTmlNfc_i2c_open_and_configure(pphTmlNfc_Config_t pConfig,
                                           void** pLinkHandle) {
   int nHandle;
-  char nq_chipid[PROPERTY_VALUE_MAX] = {0};
-  int rc = 0;
+  unsigned long num = 0;
 
   NXPLOG_TML_D("Opening port=%s\n", pConfig->pDevName);
   /* open port */
@@ -109,28 +107,18 @@ NFCSTATUS phTmlNfc_i2c_open_and_configure(pphTmlNfc_Config_t pConfig,
   }
 #endif
   /*Reset PN54X*/
-  rc = __system_property_get("vendor.qti.nfc.chipid", nq_chipid);
-  if (rc <= 0) {
-      NXPLOG_TML_E("get vendor.qti.nfc.chipid fail, rc = %d\n", rc);
-      NXPLOG_TML_D("Taking default chip-id as : SN100u %s\n", SN100_A4);
-      strlcpy(nq_chipid, SN100_A4, PROPERTY_VALUE_MAX);
-  }
-  else {
-      NXPLOG_TML_D("vendor.qti.nfc.chipid = %s\n", nq_chipid);
-  }
-
-  if (!(strncmp(nq_chipid, SN100_A3, PROPERTY_VALUE_MAX))
-    || !(strncmp(nq_chipid, SN100_A4, PROPERTY_VALUE_MAX))) {
-      /* Do not toggle the NFC Enable pin if the chip is SN100 */
+  if (GetNxpNumValue(NAME_ENABLE_VEN_TOGGLE, &num, sizeof(num))) {
+    NXPLOG_TML_D("ENABLE_VEN_TOGGLE value: %lu", num);
+    if (num == 0) {
       NXPLOG_TML_D("Not toggling NFC ENABLE PIN");
-  }
-  else {
-      /* Toggle the NFC Enable pin if the chip is not SN100 */
+    }
+    else {
       NXPLOG_TML_D("Toggling NFC ENABLE PIN");
       phTmlNfc_i2c_reset((void*)((intptr_t)nHandle), MODE_POWER_OFF);
       usleep(10 * 1000);
+      phTmlNfc_i2c_reset((void*)((intptr_t)nHandle), MODE_POWER_ON);
+    }
   }
-  phTmlNfc_i2c_reset((void*)((intptr_t)nHandle), MODE_POWER_ON);
 
   return NFCSTATUS_SUCCESS;
 }
@@ -187,9 +175,9 @@ int phTmlNfc_i2c_read(void* pDevHandle, uint8_t* pBuffer, int nNbBytesToRead) {
     return -1;
   } else {
     ret_Read = read((intptr_t)pDevHandle, pBuffer, totalBtyesToRead - numRead);
-    if (ret_Read > 0) {
+    if (ret_Read > 0 && !(pBuffer[0] == 0xFF && pBuffer[1] == 0xFF)) {
 #if(NXP_EXTNS == TRUE)
-      sem_wait(&txrxSemaphore);
+      phTmlNfc_sem_timed_wait();
 #endif
       numRead += ret_Read;
     } else if (ret_Read == 0) {
@@ -197,6 +185,7 @@ int phTmlNfc_i2c_read(void* pDevHandle, uint8_t* pBuffer, int nNbBytesToRead) {
       return -1;
     } else {
       NXPLOG_TML_E("_i2c_read() [hdr] errno : %x", errno);
+      NXPLOG_TML_E(" _i2c_read: pBuffer[0] = %x pBuffer[1]= %x", pBuffer[0], pBuffer[1]);
       return -1;
     }
 
@@ -212,7 +201,7 @@ int phTmlNfc_i2c_read(void* pDevHandle, uint8_t* pBuffer, int nNbBytesToRead) {
 
       if (ret_Read != totalBtyesToRead - numRead) {
 #if(NXP_EXTNS == TRUE)
-        sem_post(&txrxSemaphore);
+        phTmlNfc_sem_post();
 #endif
         NXPLOG_TML_E("_i2c_read() [hdr] errno : %x", errno);
         return -1;
@@ -234,7 +223,7 @@ int phTmlNfc_i2c_read(void* pDevHandle, uint8_t* pBuffer, int nNbBytesToRead) {
         numRead += ret_Read;
       } else if (ret_Read == 0) {
 #if(NXP_EXTNS == TRUE)
-        sem_post(&txrxSemaphore);
+        phTmlNfc_sem_post();
 #endif
         NXPLOG_TML_E("_i2c_read() [pyld] EOF");
         return -1;
@@ -244,7 +233,7 @@ int phTmlNfc_i2c_read(void* pDevHandle, uint8_t* pBuffer, int nNbBytesToRead) {
           phNxpNciHal_print_packet("RECV", pBuffer, NORMAL_MODE_HEADER_LEN);
         }
 #if(NXP_EXTNS == TRUE)
-        sem_post(&txrxSemaphore);
+        phTmlNfc_sem_post();
 #endif
         NXPLOG_TML_E("_i2c_read() [pyld] errno : %x", errno);
         return -1;
@@ -254,7 +243,7 @@ int phTmlNfc_i2c_read(void* pDevHandle, uint8_t* pBuffer, int nNbBytesToRead) {
     }
   }
 #if(NXP_EXTNS == TRUE)
-  sem_post(&txrxSemaphore);
+  phTmlNfc_sem_post();
 #endif
   return numRead;
 }
@@ -299,11 +288,11 @@ int phTmlNfc_i2c_write(void* pDevHandle, uint8_t* pBuffer,
       }
     }
 #if(NXP_EXTNS == TRUE)
-    sem_wait(&txrxSemaphore);
+    phTmlNfc_sem_timed_wait();
 #endif
     ret = write((intptr_t)pDevHandle, pBuffer + numWrote, numBytes - numWrote);
 #if(NXP_EXTNS == TRUE)
-    sem_post(&txrxSemaphore);
+    phTmlNfc_sem_post();
 #endif
     if (ret > 0) {
       numWrote += ret;
@@ -340,7 +329,7 @@ int phTmlNfc_i2c_write(void* pDevHandle, uint8_t* pBuffer,
 **
 *******************************************************************************/
 int phTmlNfc_i2c_reset(void* pDevHandle, long level) {
-  int ret;
+  int ret = -1;;
   NXPLOG_TML_D("phTmlNfc_i2c_reset(), VEN level %ld", level);
 
   if (NULL == pDevHandle) {
@@ -351,16 +340,16 @@ int phTmlNfc_i2c_reset(void* pDevHandle, long level) {
   if (ret < 0) {
     NXPLOG_TML_E("%s :failed errno = 0x%x", __func__, errno);
     if ((level == MODE_FW_DWNLD_WITH_VEN || level == MODE_FW_DWND_HIGH) && errno == EBUSY) {
-      notifyFwrequest = true;
+         notifyFwrequest = true;
     } else {
-      notifyFwrequest = false;
+         notifyFwrequest = false;
     }
   }
   if ((level == MODE_FW_DWNLD_WITH_VEN || level == MODE_FW_DWND_HIGH) && ret == 0) {
-    bFwDnldFlag = true;
-  } else {
-    bFwDnldFlag = false;
-  }
+        bFwDnldFlag = true;
+     } else {
+        bFwDnldFlag = false;
+     }
   return ret;
 }
 
@@ -375,3 +364,53 @@ int phTmlNfc_i2c_reset(void* pDevHandle, long level) {
 ** Returns           Current mode download/NCI
 *******************************************************************************/
 bool_t getDownloadFlag(void) { return bFwDnldFlag; }
+
+#if(NXP_EXTNS == TRUE)
+/*******************************************************************************
+**
+** Function         phTmlNfc_sem_post
+**
+** Description      sem_post 2c_read / write
+**
+** Parameters       none
+**
+** Returns          none
+*******************************************************************************/
+static void phTmlNfc_sem_post() {
+  int sem_val = 0;
+  sem_getvalue(&txrxSemaphore, &sem_val);
+  if(sem_val == 0) {
+    sem_post(&txrxSemaphore);
+  }
+}
+
+/*******************************************************************************
+**
+** Function         phTmlNfc_sem_wait
+**
+** Description      Timed sem_wait for avoiding i2c_read & write overlap
+**
+** Parameters       none
+**
+** Returns          Sem_wait return status
+*******************************************************************************/
+static int phTmlNfc_sem_timed_wait() {
+  NFCSTATUS status = NFCSTATUS_FAILED;
+  long sem_timedout = 500*1000*1000;
+  int s = 0;
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  ts.tv_sec += 0;
+  ts.tv_nsec += sem_timedout;
+  while ((s = sem_timedwait(&txrxSemaphore, &ts)) == -1 &&
+         errno == EINTR){
+    continue; /* Restart if interrupted by handler */
+  }
+  if (s != -1) {
+    status = NFCSTATUS_SUCCESS;
+  } else if(errno == ETIMEDOUT && s == -1) {
+    NXPLOG_TML_E("%s :timed out errno = 0x%x", __func__, errno);
+  }
+  return status;
+}
+#endif

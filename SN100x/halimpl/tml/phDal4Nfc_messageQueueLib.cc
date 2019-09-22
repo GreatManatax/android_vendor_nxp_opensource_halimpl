@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2014 NXP Semiconductors
+ * Copyright (C) 2010-2019 NXP Semiconductors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -218,7 +218,9 @@ int phDal4Nfc_msgrcv(intptr_t msqid, phLibNfc_Message_t* msg, long msgtyp,
 
   pQueue = (phDal4Nfc_message_queue_t*)msqid;
 
-  sem_wait(&pQueue->nProcessSemaphore);
+  if (-1 == sem_wait(&pQueue->nProcessSemaphore)) {
+    NXPLOG_TML_E("sem_wait didn't return success\n");
+  }
 
   pthread_mutex_lock(&pQueue->nCriticalSectionMutex);
 

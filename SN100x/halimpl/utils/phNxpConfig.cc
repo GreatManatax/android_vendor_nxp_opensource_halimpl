@@ -22,7 +22,7 @@
  *
  *  The original Work has been changed by NXP Semiconductors.
  *
- *  Copyright (C) 2013-2018 NXP Semiconductors
+ *  Copyright (C) 2013-2019 NXP Semiconductors
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -147,7 +147,10 @@ typedef enum
   TARGET_SDM630                        = 318, /**< SDM630 target */
   TARGET_SDM845                        = 321, /**< SDM845 target */
   TARGET_SM8150                        = 339, /**< SM8150 target */
-  TARGET_KONA                          = 356, /**< KONA target */
+  TARGET_SM8150_SDx55                  = 361, /**< SM8150_SDx55 target */
+  TARGET_SM8250                        = 356, /**< SM8250 target */
+  TARGET_SM7250                        = 400, /**< SM7250 target */
+  TARGET_SM6125                        = 394, /**< SM6125 target */
   TARGET_DEFAULT                       = TARGET_GENERIC, /**< new targets */
   TARGET_INVALID                       = 0xFF
 } TARGETTYPE;
@@ -163,16 +166,24 @@ size_t readConfigFile(const char* fileName, uint8_t** p_data) {
   fseek(fd, 0L, SEEK_END);
   const size_t file_size = ftell(fd);
   rewind(fd);
-
-  uint8_t* buffer = new uint8_t[file_size];
+  if((long)file_size < 0) {
+    ALOGE("%s Invalid file size file_size = %zu\n",__func__,file_size);
+    fclose(fd);
+    return 0;
+  }
+  uint8_t* buffer = new uint8_t[file_size + 1];
+  if (!buffer) {
+    fclose(fd);
+    return 0;
+  }
   size_t read = fread(buffer, file_size, 1, fd);
   fclose(fd);
 
   if (read == 1) {
+    buffer[file_size] = '\n';
     *p_data = buffer;
-    return file_size;
+    return file_size+1;
   }
-
   delete[] buffer;
   return 0;
 }
@@ -412,7 +423,10 @@ int CNfcConfig::getconfiguration_id (char * config_file)
         case TARGET_SM6150:
         case TARGET_QM215:
         case TARGET_SM7150:
-        case TARGET_KONA:
+        case TARGET_SM8250:
+        case TARGET_SM7250:
+        case TARGET_SM8150_SDx55:
+        case TARGET_SM6125:
             config_id = QRD_TYPE_SN100;
             strlcpy(config_file, config_name_qrd_SN100, MAX_DATA_CONFIG_PATH_LEN);
             break;
@@ -470,7 +484,10 @@ int CNfcConfig::getconfiguration_id (char * config_file)
         case TARGET_SM6150:
         case TARGET_QM215:
         case TARGET_SM7150:
-        case TARGET_KONA:
+        case TARGET_SM8250:
+        case TARGET_SM7250:
+        case TARGET_SM8150_SDx55:
+        case TARGET_SM6125:
             config_id = MTP_TYPE_SN100;
             strlcpy(config_file, config_name_mtp_SN100, MAX_DATA_CONFIG_PATH_LEN);
             break;
@@ -703,9 +720,8 @@ bool CNfcConfig::readConfig(const char* name, bool bResetContent) {
           state = END_LINE;
           break;
         }
-      // fall through to numValue to handle numValue
-      [[fallthrough]];
-
+        // fall through to numValue to handle numValue
+        [[fallthrough]];
       case NUM_VALUE:
         if (isDigit(c, base)) {
           numValue *= base;
@@ -789,6 +805,9 @@ bool CNfcConfig::readConfig(const char* name, bool bResetContent) {
 CNfcConfig::CNfcConfig()
     : mValidFile(true),
       mDynamConfig(true),
+      config_crc32_(0),
+      config_rf_crc32_(0),
+      config_tr_crc32_(0),
       state(0) {}
 
 /*******************************************************************************
@@ -1169,7 +1188,10 @@ bool CNfcConfig::isModified(tNXP_CONF_FILE aType) {
   }
 
   uint32_t stored_crc32 = 0;
-  fread(&stored_crc32, sizeof(uint32_t), 1, fd);
+  if (fread(&stored_crc32, sizeof(uint32_t), 1, fd) != 1) {
+    ALOGE("%s File read is not successfull errno = %d", __func__, errno);
+  }
+
   fclose(fd);
   ALOGD("stored_crc32 is %d config_crc32_ is %d", stored_crc32, config_crc32_);
 

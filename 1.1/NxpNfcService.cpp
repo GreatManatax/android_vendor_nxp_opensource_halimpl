@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2018 NXP
+ *  Copyright 2018-2019 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -36,18 +36,22 @@ using vendor::nxp::nxpnfc::V1_0::INxpNfc;
 using vendor::nxp::nxpnfc::V1_0::implementation::NxpNfc;
 
 int main() {
+
+
   ALOGD("Registering NFC HALIMPL Service v1.1...");
   sp<INfc> nfc_service = new Nfc();
 
-  configureRpcThreadpool(1, true /*callerWillJoin*/);
+    configureRpcThreadpool(1, true /*callerWillJoin*/);
   status_t status = nfc_service->registerAsService();
-  if (status != OK) {
+    if (status != OK) {
     LOG_ALWAYS_FATAL("Could not register service for NFC HAL Iface (%d).",
                      status);
-    return -1;
+        return -1;
     }
+
     ALOGD("Registering NFC HALIOCTL Service v1.0...");
     sp<INxpNfc> nxp_nfc_service = new NxpNfc();
+
     status = nxp_nfc_service->registerAsService();
     if (status != OK) {
         ALOGD("Could not register service for NXP NFC Extn Iface (%d).", status);
