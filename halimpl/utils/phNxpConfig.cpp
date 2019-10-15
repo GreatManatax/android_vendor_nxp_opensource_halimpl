@@ -22,7 +22,7 @@
  *
  *  The original Work has been changed by NXP Semiconductors.
  *
- *  Copyright (C) 2015-2018 NXP Semiconductors
+ *  Copyright (C) 2015-2019 NXP Semiconductors
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ const char alternative_config_path[] = "";
 #endif
 
 #if 1
-const char* transport_config_paths[] = {"/odm/etc/", "/vendor/etc/", "/etc/"};
+const char* transport_config_paths[] = {"/odm/etc/", "/vendor/etc/"};
 const char transit_config_path[] = "/data/vendor/nfc/libnfc-nxpTransit.conf";
 #else
 const char* transport_config_paths[] = {"res/"};
@@ -153,20 +153,25 @@ namespace {
 size_t readConfigFile(const char* fileName, uint8_t** p_data) {
   FILE* fd = fopen(fileName, "rb");
   if (fd == nullptr) return 0;
-
   fseek(fd, 0L, SEEK_END);
   const size_t file_size = ftell(fd);
   rewind(fd);
-
+  if((long)file_size < 0){
+    ALOGE("%s Invalid file size file_size = %zu\n",__func__,file_size);
+    fclose(fd);
+    return 0;
+  }
   uint8_t* buffer = new uint8_t[file_size];
+  if (!buffer) {
+    ALOGE("%s  memory allocation failed \n",__func__);
+    return 0;
+  }
   size_t read = fread(buffer, file_size, 1, fd);
   fclose(fd);
-
   if (read == 1) {
     *p_data = buffer;
     return file_size;
   }
-
   delete[] buffer;
   return 0;
 }
@@ -177,7 +182,6 @@ using namespace ::std;
 
 namespace nxp {
 
-void readOptionalConfig(const char* optional);
 void findConfigFilePathFromTransportConfigPaths(const string& configName, string& filePath);
 
 class CNfcParam : public string {
@@ -199,7 +203,6 @@ class CNfcConfig : public vector<const CNfcParam*> {
  public:
   virtual ~CNfcConfig();
   static CNfcConfig& GetInstance();
-  friend void readOptionalConfig(const char* optional);
   bool isModified();
   bool isModified(const char* pName);
   void resetModified();
@@ -578,7 +581,7 @@ inline int getDigitValue(char c, int base) {
 *******************************************************************************/
 void findConfigFilePathFromTransportConfigPaths(const string& configName,
                                                 string& filePath) {
-  for (int i = 0; i < transport_config_path_size - 1; i++) {
+  for (int i = 0; i < transport_config_path_size; i++) {
     filePath.assign(transport_config_paths[i]);
     filePath += configName;
     struct stat file_stat;
@@ -586,8 +589,8 @@ void findConfigFilePathFromTransportConfigPaths(const string& configName,
       return;
     }
   }
-  filePath.assign(transport_config_paths[transport_config_path_size - 1]);
-  filePath += configName;
+  // Config file didnt exist in any of the transport config_paths.
+  filePath.assign("");
 }
 
 /*******************************************************************************
@@ -710,8 +713,7 @@ bool CNfcConfig::readConfig(const char* name, bool bResetContent) {
           break;
         }
       // fall through to numValue to handle numValue
-      [[fallthrough]];
-
+        [[fallthrough]];
       case NUM_VALUE:
         if (isDigit(c, base)) {
           numValue *= base;
@@ -792,7 +794,8 @@ bool CNfcConfig::readConfig(const char* name, bool bResetContent) {
 ** Returns:     none
 **
 *******************************************************************************/
-CNfcConfig::CNfcConfig() : mValidFile(true), mDynamConfig(true), state(0) {}
+CNfcConfig::CNfcConfig() : mValidFile(true), mDynamConfig(true), config_crc32_(0),
+      config_crc32_rf_(0), config_crc32_tr_(0), state(0) {}
 
 /*******************************************************************************
 **
@@ -871,19 +874,6 @@ CNfcConfig& CNfcConfig::GetInstance() {
         theInstance.readConfig(strPath.c_str(), true);
 #if(NXP_EXTNS == TRUE)
 
-        int rc = 0;
-        char nq_fw_ver[PROPERTY_VALUE_MAX] = {0};
-
-        rc = __system_property_get("vendor.qti.nfc.fwver", nq_fw_ver);
-        if (rc <= 0)
-            ALOGE("get vendor.qti.nfc.fwver fail, rc = %d\n", rc);
-        else
-            ALOGD("vendor.qti.nfc.fwver = %s\n", nq_fw_ver);
-
-        if (!strncmp(nq_fw_ver, FW_MAJOR_NUM_NQ4xx, FW_MAJOR_NUM_LENGTH))
-           readOptionalConfig("brcm_NCI2_0");
-        else
-           readOptionalConfig("brcm");
 
         theInstance.readNxpTransitConfig("nxpTransit");
         theInstance.readNxpTransitConfig(transit_config_path);
@@ -1176,7 +1166,9 @@ bool CNfcConfig::isModified() {
   }
 
   uint32_t stored_crc32 = 0;
-  fread(&stored_crc32, sizeof(uint32_t), 1, fd);
+  if (fread(&stored_crc32, sizeof(uint32_t), 1, fd) != 1)
+    ALOGE("%s Failed to Read file", __func__);
+
   fclose(fd);
 
   return stored_crc32 != config_crc32_;
@@ -1197,7 +1189,9 @@ bool CNfcConfig::isModified(const char* pName) {
   }
 
   uint32_t stored_crc32 = 0;
-  fread(&stored_crc32, sizeof(uint32_t), 1, fd);
+  if (fread(&stored_crc32, sizeof(uint32_t), 1, fd) != 1)
+    ALOGE("%s Failed to Read file", __func__);
+
   fclose(fd);
 
   if(isRfFile)
@@ -1288,30 +1282,6 @@ CNfcParam::CNfcParam(const char* name, const string& value)
 CNfcParam::CNfcParam(const char* name, unsigned long value)
     : string(name), m_numValue(value) {}
 
-/*******************************************************************************
-**
-** Function:    readOptionalConfig()
-**
-** Description: read Config settings from an optional conf file
-**
-** Returns:     none
-**
-*******************************************************************************/
-void readOptionalConfig(const char* extra) {
-  string strPath;
-  string configName(extra_config_base);
-  configName += extra;
-  configName += extra_config_ext;
-
-  if (alternative_config_path[0] != '\0') {
-    strPath.assign(alternative_config_path);
-    strPath += configName;
-  } else {
-    findConfigFilePathFromTransportConfigPaths(configName, strPath);
-  }
-
-  CNfcConfig::GetInstance().readConfig(strPath.c_str(), false);
-}
 
 }  // namespace nxp
 /*******************************************************************************
@@ -1323,8 +1293,7 @@ void readOptionalConfig(const char* extra) {
 ** Returns:     True if found, otherwise False.
 **
 *******************************************************************************/
-extern int GetNxpStrValue(const char* name, char* pValue,
-                              unsigned long len) {
+extern int GetNxpStrValue(const char* name, char* pValue, unsigned long len) {
   nxp::CNfcConfig& rConfig = nxp::CNfcConfig::GetInstance();
 
   return rConfig.getValue(name, pValue, len);
@@ -1347,8 +1316,8 @@ extern int GetNxpStrValue(const char* name, char* pValue,
 **              false[0]
 **
 *******************************************************************************/
-extern int GetNxpByteArrayValue(const char* name, char* pValue,
-                                    long bufflen, long* len) {
+extern int GetNxpByteArrayValue(const char* name, char* pValue, long bufflen,
+                                long* len) {
   nxp::CNfcConfig& rConfig = nxp::CNfcConfig::GetInstance();
 
   return rConfig.getValue(name, pValue, bufflen, len);
