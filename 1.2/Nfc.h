@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2019 NXP
+ *  Copyright 2018-2019 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -31,25 +31,25 @@ namespace nfc {
 namespace V1_2 {
 namespace implementation {
 
-using ::android::hidl::base::V1_0::IBase;
-using ::android::hardware::nfc::V1_2::INfc;
+using ::android::sp;
 using ::android::hardware::hidl_array;
 using ::android::hardware::hidl_memory;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
-using ::android::sp;
+using ::android::hardware::nfc::V1_2::INfc;
+using ::android::hidl::base::V1_0::IBase;
 struct Nfc : public V1_2::INfc, public hidl_death_recipient {
- public:
+public:
   // Methods from ::android::hardware::nfc::V1_0::INfc follow.
-  Return<V1_0::NfcStatus> open(
-      const sp<V1_0::INfcClientCallback>& clientCallback) override;
-  Return<V1_0::NfcStatus> open_1_1(
-      const sp<V1_1::INfcClientCallback>& clientCallback) override;
-  Return<uint32_t> write(const hidl_vec<uint8_t>& data) override;
-  Return<V1_0::NfcStatus> coreInitialized(
-      const hidl_vec<uint8_t>& data) override;
+  Return<V1_0::NfcStatus>
+  open(const sp<V1_0::INfcClientCallback> &clientCallback) override;
+  Return<V1_0::NfcStatus>
+  open_1_1(const sp<V1_1::INfcClientCallback> &clientCallback) override;
+  Return<uint32_t> write(const hidl_vec<uint8_t> &data) override;
+  Return<V1_0::NfcStatus>
+  coreInitialized(const hidl_vec<uint8_t> &data) override;
   Return<V1_0::NfcStatus> prediscover() override;
   Return<V1_0::NfcStatus> close() override;
   Return<V1_0::NfcStatus> controlGranted() override;
@@ -59,6 +59,8 @@ struct Nfc : public V1_2::INfc, public hidl_death_recipient {
   Return<void> factoryReset();
   Return<V1_0::NfcStatus> closeForPowerOffCase();
   Return<void> getConfig(getConfig_cb config);
+
+  // Methods from ::android::hardware::nfc::V1_2::INfc follow.
   Return<void> getConfig_1_2(getConfig_1_2_cb config);
 
   // Methods from ::android::hidl::base::V1_0::IBase follow.
@@ -79,7 +81,7 @@ struct Nfc : public V1_2::INfc, public hidl_death_recipient {
     }
   }
 
-  static void dataCallback(uint16_t data_len, uint8_t* p_data) {
+  static void dataCallback(uint16_t data_len, uint8_t *p_data) {
     hidl_vec<uint8_t> data;
     data.setToExternal(p_data, data_len);
     if (mCallbackV1_1 != nullptr) {
@@ -95,19 +97,19 @@ struct Nfc : public V1_2::INfc, public hidl_death_recipient {
     }
   }
 
-  virtual void serviceDied(uint64_t /*cookie*/, const wp<IBase>& /*who*/) {
+  virtual void serviceDied(uint64_t /*cookie*/, const wp<IBase> & /*who*/) {
     close();
   }
 
- private:
+private:
   static sp<V1_1::INfcClientCallback> mCallbackV1_1;
   static sp<V1_0::INfcClientCallback> mCallbackV1_0;
 };
 
-}  // namespace implementation
-}  // namespace V1_2
-}  // namespace nfc
-}  // namespace hardware
-}  // namespace android
+} // namespace implementation
+} // namespace V1_2
+} // namespace nfc
+} // namespace hardware
+} // namespace android
 
-#endif  // ANDROID_HARDWARE_NFC_V1_2_NFC_H
+#endif // ANDROID_HARDWARE_NFC_V1_1_NFC_H

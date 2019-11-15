@@ -17,13 +17,11 @@
 /*
  * TML I2C port implementation for linux
  */
-
 /* Basic type definitions */
 #include <phNfcTypes.h>
 #include <phTmlNfc.h>
 
 #define PN544_MAGIC 0xE9
-
 /* Function declarations */
 void phTmlNfc_i2c_close(void* pDevHandle);
 NFCSTATUS phTmlNfc_i2c_open_and_configure(pphTmlNfc_Config_t pConfig,
